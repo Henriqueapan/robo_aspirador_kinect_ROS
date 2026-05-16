@@ -7,6 +7,7 @@ ENV TURTLEBOT_BASE=kobuki
 ENV TURTLEBOT_STACKS=hexagons
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python-is-python3 \
     python3-pip \
     python3-rosdep \
     python3-rosinstall \
@@ -21,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libftdi-dev \
     liborocos-kdl-dev \
     ros-noetic-joy \
+    ros-noetic-teleop-twist-keyboard \
     ros-noetic-sophus \
     ros-noetic-depthimage-to-laserscan \
     ros-noetic-openni-description \

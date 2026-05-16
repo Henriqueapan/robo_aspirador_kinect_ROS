@@ -61,28 +61,41 @@ xhost +local:docker
 docker compose -f docker-compose.yaml -f docker-compose.linux.yaml run --rm ros-kinect-poc
 ```
 
-Dentro do container:
+Dentro do container — use **dois terminais**:
+
+**Terminal 1** (simulação + RViz):
 
 ```bash
 source /root/catkin_ws/devel/setup.bash
 roslaunch robo_aspirador_kinect poc_demo.launch
 ```
 
+**Terminal 2** (teleop — mantenha o foco aqui ao dirigir):
+
+```bash
+source /root/catkin_ws/devel/setup.bash
+roslaunch robo_aspirador_kinect teleop.launch
+```
+
 ### Windows + WSL2
 
 1. Inicie VcXsrv (Disable access control).
 2. No WSL: `export DISPLAY=$(grep nameserver /etc/resolv.conf | awk '{print $2}'):0`
-3. `docker compose -f docker-compose.yaml -f docker-compose.wsl2.yaml run --rm ros-kinect-poc`
-4. Mesmo `roslaunch` acima.
+3. `docker compose -f docker-compose.yaml -f docker-compose.wsl2.yaml up -d`
+4. `docker exec -it robo_aspirador_kinect bash` — depois os dois `roslaunch` acima (em shells separados).
 
-## Teleop (dentro do terminal do teleop)
+## Teleop — teclas (`kinect_teleop.py`)
 
-Controles padrão `turtlebot_teleop_key`:
+| Tecla | Ação |
+|-------|------|
+| `i` | Frente |
+| `,` | Trás |
+| `j` / `l` | Girar esquerda / direita |
+| `k` ou `s` | Parar |
+| `r` / `f` | Aumentar / diminuir velocidade |
+| `q` | Sair |
 
-- `i` / `,` — frente / trás  
-- `j` / `l` — girar  
-- `k` ou espaço — parar  
-- `q` — sair  
+**Não confundir com `teleop_twist_keyboard`:** lá `q`/`z`/`w`/`x`/`e`/`c` só ajustam velocidade; `i`/`j`/`l` precisam ser mantidos e competem com RViz se tudo sobe no mesmo `roslaunch`.
 
 ## Launches modulares
 
@@ -104,6 +117,10 @@ rosrun robo_aspirador_kinect verify_rgbd_topics.py
 # ou
 rostopic list | grep camera
 ```
+
+## Simulação Kobuki no Gazebo
+
+O movimento e o frame `odom` dependem do plugin `libgazebo_ros_kobuki.so` (pacote `kobuki_gazebo_plugins`, extraído de `kobuki_desktop`). Sem ele, o RViz acusa *Unknown frame odom* e o teleop não aciona as rodas. O setup Docker compila só esse pacote (não o `kobuki_desktop` inteiro, para evitar dependência PyQt no build). Após atualizar o projeto, refaça `docker compose build`.
 
 ## Referências
 

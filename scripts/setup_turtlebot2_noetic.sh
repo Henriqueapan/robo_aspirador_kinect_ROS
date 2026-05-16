@@ -30,6 +30,15 @@ clone_if_missing https://github.com/turtlebot/turtlebot_simulator.git turtlebot_
 clone_if_missing https://github.com/yujinrobot/kobuki_core.git kobuki_core
 clone_if_missing https://github.com/yujinrobot/kobuki_msgs.git kobuki_msgs
 clone_if_missing https://github.com/yujinrobot/kobuki.git kobuki
+# Plugin Gazebo (libgazebo_ros_kobuki.so): odometria TF odom->base_footprint + cmd_vel nas rodas
+# Só o pacote kobuki_gazebo_plugins — o resto de kobuki_desktop exige PyQt (pyrcc5) e quebra o build Docker
+if [ ! -d "kobuki_gazebo_plugins" ]; then
+  clone_if_missing https://github.com/yujinrobot/kobuki_desktop.git kobuki_desktop
+  if [ -d "kobuki_desktop/kobuki_gazebo_plugins" ]; then
+    mv kobuki_desktop/kobuki_gazebo_plugins .
+  fi
+  rm -rf kobuki_desktop
+fi
 
 clone_if_missing https://github.com/yujinrobot/yujin_ocs.git yujin_ocs
 clone_if_missing https://github.com/yujinrobot/yocs_msgs.git yocs_msgs

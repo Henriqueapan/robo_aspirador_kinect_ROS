@@ -1,14 +1,20 @@
 <!--
   Teleop por teclado (TurtleBot2).
-  Publica em cmd_vel_mux/input/teleop — mesmo padrão do turtlebot_teleop oficial.
+  Publica em cmd_vel_mux/input/teleop a 10 Hz (fluxo contínuo para o Gazebo).
+
+  Recomendado: rodar em terminal separado do bringup/RViz:
+    roslaunch robo_aspirador_kinect teleop.launch
 -->
 <launch>
-  <arg name="scale_linear" default="0.5"/>
-  <arg name="scale_angular" default="1.5"/>
+  <arg name="cmd_vel_topic" default="/cmd_vel_mux/input/teleop"/>
+  <arg name="linear_speed" default="0.5"/>
+  <arg name="angular_speed" default="1.0"/>
+  <arg name="rate_hz" default="10.0"/>
 
-  <node pkg="turtlebot_teleop" type="turtlebot_teleop_key" name="turtlebot_teleop_keyboard" output="screen">
-    <param name="scale_linear" value="$(arg scale_linear)"/>
-    <param name="scale_angular" value="$(arg scale_angular)"/>
-    <remap from="turtlebot_teleop_keyboard/cmd_vel" to="cmd_vel_mux/input/teleop"/>
+  <node pkg="robo_aspirador_kinect" type="kinect_teleop.py" name="kinect_teleop" output="screen">
+    <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)"/>
+    <param name="linear_speed" value="$(arg linear_speed)"/>
+    <param name="angular_speed" value="$(arg angular_speed)"/>
+    <param name="rate_hz" value="$(arg rate_hz)"/>
   </node>
 </launch>
