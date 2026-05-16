@@ -1,6 +1,6 @@
 # Robô Aspirador — POC Kinect (ROS Noetic)
 
-Segunda entrega (POC): **TurtleBot2** com sensor **Kinect v1 (Xbox 360)** simulado no **Gazebo**, controle por **teleop** (teclado) e visualização **RGB + profundidade + nuvem de pontos** no **RViz**, executável via **Docker** (Linux e Windows/WSL2).
+**TurtleBot2** com base **Kobuki** e sensor **Kinect v1 (Xbox 360)** simulado no **Gazebo**, controle por **teleop** (teclado) e visualização **RGB + profundidade + nuvem de pontos** no **RViz**, executável via **Docker** (Linux e Windows/WSL2).
 
 ## O que esta POC faz (e o que não faz)
 
@@ -11,11 +11,11 @@ Segunda entrega (POC): **TurtleBot2** com sensor **Kinect v1 (Xbox 360)** simula
 | RViz: RGB, depth, PointCloud2, LaserScan | Kinect físico USB |
 | Docker Linux + WSL2 | |
 
-## Kinect, libfreenect, OpenNI e PCL — o que está acontecendo de verdade
+## Kinect, libfreenect, OpenNI e PCL
 
 ### Na simulação (esta POC)
 
-O URDF `kobuki_hexagons_kinect.urdf.xacro` (pacote `turtlebot_description`) inclui um sensor RGB-D modelado no Gazebo. O plugin publica diretamente mensagens ROS:
+O URDF `kobuki_hexagons_kinect.urdf.xacro` (pacote `turtlebot_description`) inclui um sensor RGB-D modelado com base no Microsoft Kinect no Gazebo. O plugin publica diretamente mensagens ROS:
 
 | Mensagem ROS | Tópico típico | Papel |
 |--------------|---------------|--------|
@@ -84,6 +84,9 @@ roslaunch robo_aspirador_kinect teleop.launch
 3. `docker compose -f docker-compose.yaml -f docker-compose.wsl2.yaml up -d`
 4. `docker exec -it robo_aspirador_kinect bash` — depois os dois `roslaunch` acima (em shells separados).
 
+Pode ser que não seja necessário VcXsrv, execução pura via WSL2 com apenas execução do docker-compose e roslaunch do launcher com Gazebo e RViz se mostraram possíveis em algumas versões.
+É importante testar sem VcXsrv e verificar se em sua máquina a execução ocorre normalmente, caso não ocorra, então será necessário recorrer a VcXsrv.
+
 ## Teleop — teclas (`kinect_teleop.py`)
 
 | Tecla | Ação |
@@ -108,7 +111,7 @@ roslaunch robo_aspirador_kinect teleop.launch
 
 ## Mapas (fase futura)
 
-Mapas `casa.yaml` / `casa_v2.yaml` copiados do projeto anterior, com caminhos relativos, para SLAM e aspiração automática em entregas seguintes.
+Mapas `casa.yaml` / `casa_v2.yaml` para futura implementação de SLAM e aspiração automática.
 
 ## Verificação rápida de tópicos
 
@@ -128,5 +131,3 @@ O movimento e o frame `odom` dependem do plugin `libgazebo_ros_kobuki.so` (pacot
 - [freenect_stack](https://wiki.ros.org/freenect_stack)
 - [openni2_camera](https://wiki.ros.org/openni2_camera)
 - [turtlebot2-noetic (guia comunitário)](https://github.com/ailabspace/turtlebot2-noetic)
-- Relatório de viabilidade: `cursor_models_output/gate-viabilidade-turtlebot-noetic.md`
-- Troubleshooting: `cursor_models_output/troubleshooting-poc-kinect.md`
