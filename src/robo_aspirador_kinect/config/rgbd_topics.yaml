@@ -1,0 +1,22 @@
+# Tópicos RGB-D do Kinect (simulação Gazebo ou driver real)
+#
+# Simulação (POC atual):
+#   O plugin depth_camera do Gazebo no URDF kinect publica diretamente estas mensagens.
+#   Não há chamada a libfreenect nem OpenNI em runtime.
+#
+# Hardware real (fase futura):
+#   freenect_stack / openni2_camera publicam nos MESMOS nomes de tópico (convenção ROS),
+#   permitindo reutilizar este RViz e nós downstream sem alterar remaps.
+#
+# PCL (Point Cloud Library):
+#   Consumiria sensor_msgs/PointCloud2 em /camera/depth/points via nó C++ ou pcl_ros.
+#   RViz já visualiza PointCloud2 nativamente; PCL entraria em filtragem/segmentação 3D.
+
+rgb_image: /camera/rgb/image_raw
+rgb_camera_info: /camera/rgb/camera_info
+depth_image: /camera/depth/image_raw
+depth_camera_info: /camera/depth/camera_info
+point_cloud: /camera/depth/points
+scan_from_depth: /scan
+
+fixed_frame: odom

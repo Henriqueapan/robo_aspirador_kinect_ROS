@@ -1,0 +1,13 @@
+# Windows + Docker Desktop + WSL2 + X server (VcXsrv / Xming)
+# Pré-requisitos no host Windows:
+#   1. VcXsrv com "Disable access control"
+#   2. No WSL: export DISPLAY=$(grep nameserver /etc/resolv.conf | awk '{print $2}'):0
+
+services:
+  ros-kinect-poc:
+    ports:
+      - "11311:11311"
+    environment:
+      - DISPLAY=${DISPLAY:-host.docker.internal:0.0}
+    volumes:
+      - ${X11_SOCKET:-/tmp/.X11-unix}:/tmp/.X11-unix:rw

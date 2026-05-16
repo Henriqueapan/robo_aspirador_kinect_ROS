@@ -1,0 +1,28 @@
+<!--
+  Orquestrador da POC: Gazebo + TurtleBot2/Kinect + teleop + RViz.
+  Uso (dentro do container, após source devel/setup.bash):
+    roslaunch robo_aspirador_kinect poc_demo.launch
+-->
+<launch>
+  <arg name="gui" default="true"/>
+  <arg name="rviz" default="true"/>
+  <arg name="teleop" default="true"/>
+  <arg name="verify_topics" default="true"/>
+
+  <include file="$(find robo_aspirador_kinect)/launch/bringup_sim.launch">
+    <arg name="gui" value="$(arg gui)"/>
+    <arg name="3d_sensor" value="kinect"/>
+  </include>
+
+  <group if="$(arg teleop)">
+    <include file="$(find robo_aspirador_kinect)/launch/teleop.launch"/>
+  </group>
+
+  <group if="$(arg rviz)">
+    <include file="$(find robo_aspirador_kinect)/launch/rviz_sensors.launch"/>
+  </group>
+
+  <!-- Nó opcional: confirma que os tópicos RGB-D estão publicando (sem PCL explícito) -->
+  <node if="$(arg verify_topics)" pkg="robo_aspirador_kinect" type="verify_rgbd_topics.py"
+        name="verify_rgbd_topics" output="screen"/>
+</launch>

@@ -1,0 +1,8 @@
+<!--
+  RViz pré-configurado para sensores Kinect simulados.
+  Tópicos alinhados com config/rgbd_topics.yaml e com o pipeline do PDF (RGB-D + nuvem).
+-->
+<launch>
+  <arg name="rviz_config" default="$(find robo_aspirador_kinect)/config/poc_kinect.rviz"/>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_config)" required="false" output="screen"/>
+</launch>

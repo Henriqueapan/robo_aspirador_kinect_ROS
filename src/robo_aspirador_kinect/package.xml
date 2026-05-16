@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>robo_aspirador_kinect</name>
+  <version>0.1.0</version>
+  <description>
+    POC ROS Noetic: TurtleBot2 com sensor Kinect (simulado) em Gazebo,
+    teleop por teclado e visualização RGB-D no RViz.
+  </description>
+  <maintainer email="henrique@todo.todo">Henrique Andrade Pancotti</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>gazebo_ros</depend>
+  <depend>turtlebot_gazebo</depend>
+  <depend>turtlebot_bringup</depend>
+  <depend>turtlebot_teleop</depend>
+  <depend>turtlebot_description</depend>
+  <depend>depthimage_to_laserscan</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>nodelet</depend>
+  <depend>xacro</depend>
+
+  <exec_depend>rviz</exec_depend>
+  <exec_depend>image_view</exec_depend>
+
+  <export>
+  </export>
+</package>

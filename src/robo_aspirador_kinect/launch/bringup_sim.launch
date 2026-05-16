@@ -1,0 +1,58 @@
+<!--
+  Simulação: TurtleBot2 (Kobuki) + Kinect v1 (Xbox 360) em Gazebo.
+
+  O sensor RGB-D NÃO usa libfreenect/OpenNI nesta POC: o plugin Gazebo do URDF
+  kinect publica Image / CameraInfo / PointCloud2 nos mesmos tópicos que o driver
+  real (freenect_stack) publicaria — ver README e config/rgbd_topics.yaml.
+-->
+<launch>
+  <arg name="gui" default="true"/>
+  <arg name="paused" default="false"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <!-- kobuki + stacks hexagons + kinect (URDF: kobuki_hexagons_kinect.urdf.xacro) -->
+  <arg name="base" default="kobuki"/>
+  <arg name="stacks" default="hexagons"/>
+  <arg name="3d_sensor" default="kinect"/>
+
+  <arg name="spawn_x" default="0.0"/>
+  <arg name="spawn_y" default="0.0"/>
+  <arg name="spawn_z" default="0.0"/>
+  <arg name="spawn_yaw" default="0.0"/>
+
+  <env name="TURTLEBOT_3D_SENSOR" value="$(arg 3d_sensor)"/>
+  <env name="TURTLEBOT_BASE" value="$(arg base)"/>
+  <env name="TURTLEBOT_STACKS" value="$(arg stacks)"/>
+  <env name="ROBOT_INITIAL_POSE" value="-x $(arg spawn_x) -y $(arg spawn_y) -z $(arg spawn_z) -Y $(arg spawn_yaw)"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="gui" value="$(arg gui)"/>
+  </include>
+
+  <!-- Cenário casa (reaproveitado do projeto robo_aspirador) -->
+  <node name="spawn_casa" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+        args="-file $(find robo_aspirador_kinect)/worlds/casa/model.sdf -sdf -model casa -x 0 -y 0 -z 0"/>
+
+  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml">
+    <arg name="base" value="$(arg base)"/>
+    <arg name="stacks" value="$(arg stacks)"/>
+    <arg name="3d_sensor" value="$(arg 3d_sensor)"/>
+  </include>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="30.0"/>
+  </node>
+
+  <!-- LaserScan sintético a partir da profundidade Kinect (padrão turtlebot_gazebo) -->
+  <node pkg="nodelet" type="nodelet" name="laserscan_nodelet_manager" args="manager"/>
+  <node pkg="nodelet" type="nodelet" name="depthimage_to_laserscan"
+        args="load depthimage_to_laserscan/DepthImageToLaserScanNodelet laserscan_nodelet_manager">
+    <param name="scan_height" value="10"/>
+    <param name="output_frame_id" value="camera_depth_frame"/>
+    <param name="range_min" value="0.45"/>
+    <remap from="image" to="/camera/depth/image_raw"/>
+    <remap from="scan" to="/scan"/>
+  </node>
+</launch>

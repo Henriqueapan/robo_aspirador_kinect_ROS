@@ -1,0 +1,20 @@
+# Compose base — use com override Linux ou WSL2:
+#   docker compose -f docker-compose.yaml -f docker-compose.linux.yaml up -d
+#   docker compose -f docker-compose.yaml -f docker-compose.wsl2.yaml up -d
+
+services:
+  ros-kinect-poc:
+    build: .
+    image: robo-aspirador-kinect:noetic-0.1.0
+    container_name: robo_aspirador_kinect
+    stdin_open: true
+    tty: true
+    environment:
+      - QT_X11_NO_MITSHM=1
+      - TURTLEBOT_3D_SENSOR=kinect
+      - TURTLEBOT_BASE=kobuki
+      - TURTLEBOT_STACKS=hexagons
+    volumes:
+      - ./src/robo_aspirador_kinect:/root/catkin_ws/src/robo_aspirador_kinect:rw
+    working_dir: /root/catkin_ws
+    command: bash
