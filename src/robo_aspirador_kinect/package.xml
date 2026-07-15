@@ -24,6 +24,16 @@
   <depend>nodelet</depend>
   <depend>xacro</depend>
 
+  <!-- Navegação autônoma: mapeamento (SLAM) + cobertura -->
+  <exec_depend>gmapping</exec_depend>
+  <exec_depend>amcl</exec_depend>
+  <exec_depend>map_server</exec_depend>
+  <exec_depend>mbf_costmap_nav</exec_depend>
+  <exec_depend>tracking_pid</exec_depend>
+  <exec_depend>full_coverage_path_planner</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
   <exec_depend>rviz</exec_depend>
   <exec_depend>image_view</exec_depend>
 
