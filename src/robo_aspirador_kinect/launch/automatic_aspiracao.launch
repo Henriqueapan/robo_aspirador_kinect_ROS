@@ -1,0 +1,74 @@
+<!--
+  Modo AUTOMÁTICO de aspiração (adaptado de robo_aspirador_ROS-original).
+
+  Sobe a cobertura (coverage_mbf_tracking) + AMCL para localização no mapa
+  salvo. O AMCL fornece a transformação map->odom (encerre o gmapping do modo
+  manual antes de subir este, ou seja, feche o manual_mapping com Ctrl+C).
+
+  Uso (a BASE já deve estar no ar em outro terminal, via bringup_sim.launch):
+    roslaunch robo_aspirador_kinect automatic_aspiracao.launch
+
+  Diferenças (P3DX -> Kobuki/Kinect):
+    - scan: /p3dx/laser/scan -> /scan
+    - base_frame: base_link  -> base_footprint
+    - odom_topic/cmd_vel ajustados no include de coverage_mbf_tracking
+-->
+<launch>
+  <!-- Silencia o flood de TF_REPEATED_DATA (ruído do plugin Kobuki no Gazebo) -->
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find robo_aspirador_kinect)/config/rosconsole.conf"/>
+
+  <!-- Mapa FECHADO (desconhecido pintado como parede): o SpiralSTC só trata
+       como obstáculo célula OCUPADA; área desconhecida conta como livre e o
+       caminho de cobertura "vazaria" para fora da casa. O mapa *_fechado é
+       gerado automaticamente ao salvar (opção 's' do menu) ou manualmente:
+         rosrun robo_aspirador_kinect fechar_mapa.py .../maps/mapa_atual.yaml -->
+  <arg name="map" default="$(find robo_aspirador_kinect)/maps/mapa_atual_fechado.yaml"/>
+  <arg name="odom_topic" default="/odom"/>
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="cmd_vel_topic" default="/cmd_vel_mux/input/navi"/>
+  <!-- A base (bringup_sim) já sobe o RViz; por padrão não abrimos outro aqui.
+       Passe rviz:=true se rodar este launch sem a base com RViz. -->
+  <arg name="rviz" default="false"/>
+  <arg name="odom_frame" default="odom"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <!-- ATENÇÃO: robot_radius deve ser >= tool_radius. No parseGrid do
+       full_coverage_path_planner os raios viram tamanhos em pixels SEM SINAL
+       (uint32_t); com tool > robot a subtração robotNodeSize-nodeSize sofre
+       underflow (7-8 = 4294967295), o índice clampa em 0 e o planejador lê
+       sempre a célula [0] do mapa — enxerga TUDO livre e traça caminhos por
+       cima de paredes e para fora do mapa. -->
+  <arg name="robot_radius" default="0.2"/>
+  <arg name="tool_radius" default="0.18"/>
+  <arg name="amcl_min_particles" default="500"/>
+  <arg name="amcl_max_particles" default="2000"/>
+  <arg name="amcl_kld_err" default="0.05"/>
+  <arg name="amcl_kld_z" default="0.99"/>
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+
+  <include file="$(find robo_aspirador_kinect)/launch/coverage_mbf_tracking.launch">
+    <arg name="map" value="$(arg map)"/>
+    <arg name="odom_topic" value="$(arg odom_topic)"/>
+    <arg name="scan_topic" value="$(arg scan_topic)"/>
+    <arg name="cmd_vel_topic" value="$(arg cmd_vel_topic)"/>
+    <arg name="rviz" value="$(arg rviz)"/>
+    <arg name="robot_radius" value="$(arg robot_radius)"/>
+    <arg name="tool_radius" value="$(arg tool_radius)"/>
+  </include>
+
+  <!-- Localização: fornece transformação map -> odom -->
+  <node pkg="amcl" type="amcl" name="amcl" output="log">
+    <param name="global_frame_id" value="map"/>
+    <param name="odom_frame_id" value="$(arg odom_frame)"/>
+    <param name="base_frame_id" value="$(arg base_frame)"/>
+    <param name="min_particles" value="$(arg amcl_min_particles)"/>
+    <param name="max_particles" value="$(arg amcl_max_particles)"/>
+    <param name="kld_err" value="$(arg amcl_kld_err)"/>
+    <param name="kld_z" value="$(arg amcl_kld_z)"/>
+    <param name="initial_pose_x" value="$(arg initial_pose_x)"/>
+    <param name="initial_pose_y" value="$(arg initial_pose_y)"/>
+    <param name="initial_pose_a" value="$(arg initial_pose_a)"/>
+    <remap from="scan" to="$(arg scan_topic)"/>
+  </node>
+</launch>
