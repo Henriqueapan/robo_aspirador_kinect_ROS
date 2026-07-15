@@ -38,7 +38,7 @@
        caminho de cobertura "vazaria" para fora da casa. O mapa *_fechado é
        gerado automaticamente ao salvar (opção 's' do menu) ou manualmente:
          rosrun robo_aspirador_kinect fechar_mapa.py .../maps/mapa_atual.yaml -->
-  <arg name="map" default="$(find robo_aspirador_kinect)/maps/mapa_atual_quarto_fechado.yaml"/>
+  <arg name="map" default="$(find robo_aspirador_kinect)/maps/mapa_atual_completo_fechado.yaml"/>
   <arg name="odom_topic" default="/odom"/>
   <arg name="scan_topic" default="/scan"/>
   <arg name="cmd_vel_topic" default="/cmd_vel_mux/input/navi"/>
