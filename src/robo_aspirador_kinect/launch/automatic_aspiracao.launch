@@ -1,12 +1,28 @@
 <!--
   Modo AUTOMÁTICO de aspiração (adaptado de robo_aspirador_ROS-original).
 
-  Sobe a cobertura (coverage_mbf_tracking) + AMCL para localização no mapa
-  salvo. O AMCL fornece a transformação map->odom (encerre o gmapping do modo
-  manual antes de subir este, ou seja, feche o manual_mapping com Ctrl+C).
+  Sobe a cobertura (coverage_mbf_tracking) + a fonte da TF map->odom. Encerre o
+  gmapping do modo manual antes de subir este (Ctrl+C no manual_mapping).
+
+  LOCALIZAÇÃO (arg localization):
+    odom  (padrão) — NÃO usa AMCL. Publica map->odom ESTÁTICO (identidade) e a
+        pose do robô no mapa passa a ser dirigida SÓ pela odometria. Em simulação
+        a odometria do Kobuki (plugin Gazebo) é quase perfeita, então o mapa NÃO
+        desliza e não há os "saltos" do AMCL. O AMCL corrige a odometria casando
+        o /scan com o mapa; com o Kinect (FOV ~60°) esse casamento é pobre e o
+        AMCL "puxa" a pose para casamentos ruins -> o mapa parece deslizar e o
+        robô pode colidir. Sem esse acoplamento, o resultado fica estável.
+        Pressupõe map ~= odom na largada (o gmapping ancora o mapa na origem do
+        odom); portanto o robô deve iniciar a cobertura na MESMA pose de spawn em
+        que o mapa foi ancorado (offset ajustável por map_odom_x/y/yaw).
+
+    amcl — comportamento clássico (como no original): AMCL fornece map->odom
+        corrigindo a odometria pelo /scan. Ideal com laser de FOV amplo; com o
+        Kinect ele ainda pode derivar por conta do FOV estreito (~60°).
 
   Uso (a BASE já deve estar no ar em outro terminal, via bringup_sim.launch):
-    roslaunch robo_aspirador_kinect automatic_aspiracao.launch
+    roslaunch robo_aspirador_kinect automatic_aspiracao.launch                  # odom
+    roslaunch robo_aspirador_kinect automatic_aspiracao.launch localization:=amcl
 
   Diferenças (P3DX -> Kobuki/Kinect):
     - scan: /p3dx/laser/scan -> /scan
@@ -22,7 +38,7 @@
        caminho de cobertura "vazaria" para fora da casa. O mapa *_fechado é
        gerado automaticamente ao salvar (opção 's' do menu) ou manualmente:
          rosrun robo_aspirador_kinect fechar_mapa.py .../maps/mapa_atual.yaml -->
-  <arg name="map" default="$(find robo_aspirador_kinect)/maps/mapa_atual_fechado.yaml"/>
+  <arg name="map" default="$(find robo_aspirador_kinect)/maps/mapa_atual_quarto_fechado.yaml"/>
   <arg name="odom_topic" default="/odom"/>
   <arg name="scan_topic" default="/scan"/>
   <arg name="cmd_vel_topic" default="/cmd_vel_mux/input/navi"/>
@@ -39,10 +55,25 @@
        cima de paredes e para fora do mapa. -->
   <arg name="robot_radius" default="0.2"/>
   <arg name="tool_radius" default="0.18"/>
+
+  <!-- Fonte da TF map->odom: odom (estatico, padrao) | amcl (correcao por scan).
+       Ver cabecalho para o porque do default 'odom' com o Kinect. -->
+  <arg name="localization" default="odom"/>
+  <!-- Offset map->odom no modo 'odom'. Identidade (0 0 0) assume que o robo
+       inicia a cobertura na pose de spawn onde o mapa foi ancorado (map~=odom).
+       Ajuste se iniciar de outra pose conhecida. -->
+  <arg name="map_odom_x" default="0.0"/>
+  <arg name="map_odom_y" default="0.0"/>
+  <arg name="map_odom_yaw" default="0.0"/>
+
   <arg name="amcl_min_particles" default="500"/>
   <arg name="amcl_max_particles" default="2000"/>
   <arg name="amcl_kld_err" default="0.05"/>
   <arg name="amcl_kld_z" default="0.99"/>
+  <!-- transform_tolerance: a TF map->odom vale por (stamp + tolerance). Com o
+       /scan do Kinect a ~6-7 Hz (periodo ~150 ms), a default (0.1 s) expira
+       entre scans -> mapa "pisca" no RViz e o costmap perde o lookup de TF. -->
+  <arg name="amcl_transform_tolerance" default="0.5"/>
   <arg name="initial_pose_x" default="0.0"/>
   <arg name="initial_pose_y" default="0.0"/>
   <arg name="initial_pose_a" default="0.0"/>
@@ -57,8 +88,16 @@
     <arg name="tool_radius" value="$(arg tool_radius)"/>
   </include>
 
-  <!-- Localização: fornece transformação map -> odom -->
-  <node pkg="amcl" type="amcl" name="amcl" output="log">
+  <!-- ===== Localização por ODOMETRIA (padrão): map->odom ESTÁTICO ===== -->
+  <!-- Sem AMCL: a pose no mapa segue a odometria (quase perfeita em sim). O mapa
+       nao desliza e nao ha saltos. args: x y z yaw pitch roll parent child periodo -->
+  <node if="$(eval localization == 'odom')" pkg="tf" type="static_transform_publisher"
+        name="map_to_odom"
+        args="$(arg map_odom_x) $(arg map_odom_y) 0 $(arg map_odom_yaw) 0 0 map $(arg odom_frame) 100"
+        output="log"/>
+
+  <!-- ===== Localização por AMCL (opcional): map->odom corrigido pelo scan ===== -->
+  <node if="$(eval localization == 'amcl')" pkg="amcl" type="amcl" name="amcl" output="log">
     <param name="global_frame_id" value="map"/>
     <param name="odom_frame_id" value="$(arg odom_frame)"/>
     <param name="base_frame_id" value="$(arg base_frame)"/>
@@ -66,6 +105,7 @@
     <param name="max_particles" value="$(arg amcl_max_particles)"/>
     <param name="kld_err" value="$(arg amcl_kld_err)"/>
     <param name="kld_z" value="$(arg amcl_kld_z)"/>
+    <param name="transform_tolerance" value="$(arg amcl_transform_tolerance)"/>
     <param name="initial_pose_x" value="$(arg initial_pose_x)"/>
     <param name="initial_pose_y" value="$(arg initial_pose_y)"/>
     <param name="initial_pose_a" value="$(arg initial_pose_a)"/>

@@ -29,9 +29,13 @@
   <arg name="scan_topic" default="/scan"/>
   <arg name="cmd_vel_topic" default="/cmd_vel_mux/input/navi"/>
 
-  <!-- Parâmetros do Tracking PID -->
-  <arg name="target_x_vel" default="0.5"/>
-  <arg name="target_yaw_vel" default="0.4"/>
+  <!-- Parâmetros do Tracking PID. Reduzidos (era 0.5/0.4): o tracking_pid segue
+       o caminho em malha ABERTA sobre a pose do AMCL; com o FOV estreito do
+       Kinect a localizacao "desliza", entao ir mais devagar (sobretudo girar
+       devagar) acumula menos drift por trecho e mantem o rastreamento justo,
+       reduzindo o risco de "entrar" na parede. -->
+  <arg name="target_x_vel" default="0.3"/>
+  <arg name="target_yaw_vel" default="0.25"/>
 
   <!-- Geometria do robô (Kobuki). robot_radius deve ser >= tool_radius:
        no parseGrid do full_coverage_path_planner os raios viram pixels uint32;
