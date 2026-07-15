@@ -20,6 +20,6 @@ catkin_install_python(PROGRAMS
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(DIRECTORY launch config worlds maps
+install(DIRECTORY launch config worlds maps urdf
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

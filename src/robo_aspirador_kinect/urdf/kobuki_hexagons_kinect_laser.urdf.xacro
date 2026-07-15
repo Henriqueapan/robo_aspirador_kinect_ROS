@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<!--
+  TurtleBot2 (Kobuki) + stacks hexagons + Kinect + LASER 2D (simulado).
+
+  Reaproveita 100% do robô padrão do turtlebot_description (base/stacks/Kinect)
+  e apenas ADICIONA um laser 2D fixo sobre a base. É este xacro que o
+  kobuki.launch.xml carrega via urdf_file quando scan_source:=laser (ver
+  bringup_sim.launch); com scan_source:=depth|cloud o robô padrão (sem laser)
+  é usado e o /scan vem do Kinect (scan_source.launch).
+
+  Laser: perfil de um scanner 2D acessível estilo Hokuyo URG-04LX
+    - FOV 240° (min=-120°, max=+120°), ~640 feixes, 10 Hz
+    - alcance 0.10–8.0 m
+  Publica DIRETO em /scan (frame laser_link). Por isso este URDF só entra em
+  cena no modo laser: evita dois publishers no mesmo tópico.
+
+  Para trocar FOV/feixes/alcance/altura de montagem, edite as propriedades
+  laser_* abaixo (mudança exige apenas relançar, sem rebuild da imagem).
+-->
+<robot name="turtlebot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Robô padrão (Kobuki + hexagons + Kinect). Traz base_link e o plugin RGB-D. -->
+  <xacro:include filename="$(find turtlebot_description)/robots/kobuki_hexagons_kinect.urdf.xacro"/>
+
+  <!-- ===================== Laser 2D (perfil Hokuyo URG-04LX) ===================== -->
+  <xacro:property name="laser_mount_x"   value="0.0"/>   <!-- centrado no eixo -->
+  <xacro:property name="laser_mount_y"   value="0.0"/>
+  <xacro:property name="laser_mount_z"   value="0.42"/>  <!-- topo das stacks hexagons -->
+  <xacro:property name="laser_samples"   value="640"/>
+  <xacro:property name="laser_min_angle" value="-2.0943951"/> <!-- -120° -->
+  <xacro:property name="laser_max_angle" value="2.0943951"/>  <!-- +120° (FOV 240°) -->
+  <xacro:property name="laser_min_range" value="0.10"/>
+  <xacro:property name="laser_max_range" value="8.0"/>
+  <xacro:property name="laser_update_hz" value="10.0"/>
+  <xacro:property name="laser_topic"     value="/scan"/>
+  <xacro:property name="laser_frame"     value="laser_link"/>
+
+  <joint name="laser_joint" type="fixed">
+    <origin xyz="${laser_mount_x} ${laser_mount_y} ${laser_mount_z}" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="${laser_frame}"/>
+  </joint>
+
+  <link name="${laser_frame}">
+    <inertial>
+      <mass value="0.16"/>
+      <origin xyz="0 0 0"/>
+      <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.025" length="0.04"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.025" length="0.04"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <gazebo reference="${laser_frame}">
+    <material>Gazebo/Black</material>
+    <sensor type="ray" name="laser_2d">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>false</visualize>
+      <update_rate>${laser_update_hz}</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>${laser_samples}</samples>
+            <resolution>1</resolution>
+            <min_angle>${laser_min_angle}</min_angle>
+            <max_angle>${laser_max_angle}</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>${laser_min_range}</min>
+          <max>${laser_max_range}</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="gazebo_ros_laser_2d" filename="libgazebo_ros_laser.so">
+        <topicName>${laser_topic}</topicName>
+        <frameName>${laser_frame}</frameName>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+</robot>

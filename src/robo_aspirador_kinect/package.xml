@@ -20,12 +20,15 @@
   <depend>turtlebot_bringup</depend>
   <depend>turtlebot_description</depend>
   <depend>depthimage_to_laserscan</depend>
+  <!-- Laser 2D simulado (libgazebo_ros_laser.so) do URDF ..._laser.urdf.xacro -->
+  <depend>gazebo_plugins</depend>
   <depend>robot_state_publisher</depend>
   <depend>nodelet</depend>
   <depend>xacro</depend>
 
   <!-- Navegação autônoma: mapeamento (SLAM) + cobertura -->
   <exec_depend>gmapping</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>amcl</exec_depend>
   <exec_depend>map_server</exec_depend>
   <exec_depend>mbf_costmap_nav</exec_depend>

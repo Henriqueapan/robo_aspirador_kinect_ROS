@@ -1,28 +1,34 @@
 <!--
-  Fonte do LaserScan (/scan) derivado do Kinect.
+  Fonte do LaserScan (/scan).
 
   Esta camada é isolada de propósito: todo o resto da stack (gmapping, amcl,
   move_base_flex, full_coverage_path_planner) consome apenas o tópico /scan e
   não sabe de onde ele vem. Trocar a fonte é mudar um único argumento.
 
-    scan_source=depth  (padrão, comprovado nesta POC)
-        depthimage_to_laserscan: achata a imagem de profundidade do Kinect
-        (/camera/depth/image_raw) em um feixe 2D. Leve e já validado.
+    scan_source=laser  (PADRÃO, fonte primária)
+        Laser 2D simulado (240°, perfil Hokuyo URG-04LX) embutido no URDF do
+        robô (ver urdf/kobuki_hexagons_kinect_laser.urdf.xacro). O plugin do
+        Gazebo publica /scan DIRETO — este launch não sobe nenhum nó nesse modo.
+        O URDF com laser é selecionado no bringup_sim.launch (urdf_file).
 
-    scan_source=cloud  (opcional, validado)
+    scan_source=depth  (Kinect, FOV ~60°)
+        depthimage_to_laserscan: achata a imagem de profundidade do Kinect
+        (/camera/depth/image_raw) em um feixe 2D. Leve.
+
+    scan_source=cloud  (Kinect, FOV ~60°)
         pointcloud_to_laserscan: projeta a nuvem 3D (/camera/depth/points)
         para /scan com filtro de altura (min_height/max_height), usando de
         fato a point cloud do Kinect. Requer o pacote pointcloud_to_laserscan
         (ros-noetic-pointcloud-to-laserscan, já no Dockerfile).
 
-  IMPORTANTE: o tópico de saída (/scan) é idêntico nos dois modos (drop-in).
-  O frame de saída difere de propósito: o depth publica em camera_depth_frame;
-  o cloud publica em base_footprint (target_frame), o que torna o filtro de
-  altura (min_height/max_height) referente ao CHÃO, não ao plano do sensor.
-  Ambos são válidos para os consumidores (gmapping/amcl/costmaps) via TF.
+  IMPORTANTE: o tópico de saída (/scan) é idêntico nos três modos (drop-in).
+  O frame de saída difere de propósito: laser publica em laser_link; depth em
+  camera_depth_frame; cloud em base_footprint (target_frame), o que torna o
+  filtro de altura (min_height/max_height) referente ao CHÃO, não ao plano do
+  sensor. Todos são válidos para os consumidores (gmapping/amcl/costmaps) via TF.
 -->
 <launch>
-  <arg name="scan_source" default="depth"/>       <!-- depth | cloud -->
+  <arg name="scan_source" default="laser"/>       <!-- laser | depth | cloud -->
   <arg name="scan_topic" default="/scan"/>
   <arg name="output_frame" default="camera_depth_frame"/>
   <arg name="range_min" default="0.45"/>

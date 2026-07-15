@@ -23,8 +23,19 @@
   <arg name="spawn_z" default="0.0"/>
   <arg name="spawn_yaw" default="0.0"/>
 
-  <!-- Fonte do /scan: depth (padrão) | cloud (fase 2, pointcloud_to_laserscan) -->
-  <arg name="scan_source" default="depth"/>
+  <!-- Fonte do /scan:
+         laser (padrão) = laser 2D simulado (240°, perfil Hokuyo) publicando /scan
+                          direto do Gazebo. É a fonte primária/mais confiável.
+         depth          = depthimage_to_laserscan (Kinect, FOV ~60°)
+         cloud          = pointcloud_to_laserscan (Kinect, FOV ~60°)
+       Em laser o robô carrega o URDF com laser (urdf_file abaixo); em depth/cloud
+       carrega o robô padrão (sem laser) e o /scan vem do Kinect. -->
+  <arg name="scan_source" default="laser"/>
+
+  <!-- URDF com laser 2D (usado só quando scan_source:=laser). Espelha o default do
+       kobuki.launch.xml, apenas trocando o robô por um que adiciona o laser. -->
+  <arg name="laser_urdf_file"
+       default="$(find xacro)/xacro '$(find robo_aspirador_kinect)/urdf/kobuki_hexagons_kinect_laser.urdf.xacro'"/>
 
   <!-- RViz persistente (mapa + scan + nuvem + robô + caminho de cobertura) -->
   <arg name="rviz" default="false"/>
@@ -45,7 +56,18 @@
   <node name="spawn_casa" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
         args="-file $(find robo_aspirador_kinect)/worlds/casa/model.sdf -sdf -model casa -x 0 -y 0 -z 0"/>
 
-  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml">
+  <!-- scan_source:=laser → robô COM laser 2D (urdf_file customizado) -->
+  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml"
+           if="$(eval scan_source == 'laser')">
+    <arg name="base" value="$(arg base)"/>
+    <arg name="stacks" value="$(arg stacks)"/>
+    <arg name="3d_sensor" value="$(arg 3d_sensor)"/>
+    <arg name="urdf_file" value="$(arg laser_urdf_file)"/>
+  </include>
+
+  <!-- scan_source:=depth|cloud → robô padrão (sem laser); /scan vem do Kinect -->
+  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml"
+           unless="$(eval scan_source == 'laser')">
     <arg name="base" value="$(arg base)"/>
     <arg name="stacks" value="$(arg stacks)"/>
     <arg name="3d_sensor" value="$(arg 3d_sensor)"/>

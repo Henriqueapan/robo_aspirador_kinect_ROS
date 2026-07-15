@@ -25,7 +25,7 @@
   <arg name="default_map" default="$(find robo_aspirador_kinect)/maps/mapa_atual.yaml"/>
   <arg name="save_map_path" default="$(find robo_aspirador_kinect)/maps/mapa_atual"/>
   <arg name="rviz" default="true"/>
-  <arg name="scan_source" default="depth"/>
+  <arg name="scan_source" default="laser"/>   <!-- laser (padrão) | depth | cloud -->
   <arg name="initial_pose_x" default="0.0"/>
   <arg name="initial_pose_y" default="0.0"/>
   <arg name="initial_pose_a" default="0.0"/>
