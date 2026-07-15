@@ -1,0 +1,81 @@
+<!--
+  Modo MANUAL de mapeamento (adaptado de robo_aspirador_ROS-original).
+
+  Sobe apenas o SLAM (gmapping). A BASE (Gazebo + Kobuki + Kinect + /scan) já
+  deve estar no ar em outro terminal, via bringup_sim.launch. O usuário dirige o
+  robô com o teleop em mais um terminal:
+    docker exec -it robo_aspirador_kinect bash
+    roslaunch robo_aspirador_kinect teleop.launch
+
+  Base: mesma stack de gmapping do original (robo_aspirador_ROS-original), com os
+  parâmetros ADAPTADOS à diferença de sensor. O original usava um laser Hokuyo
+  simulado (FOV 240°, 727 feixes, 4 m). O Kinect dá um /scan bem mais pobre:
+  FOV ~60°, ~640 feixes, alcance até 8 m, a 10 Hz. Com 1/4 do campo de visão, o
+  scan-matching do gmapping fica fraco (sobretudo em rotação) e, se ele aceitar
+  casamentos ruins, o mapa "escorrega/gira" em torno do robô. Os ajustes abaixo
+  atacam exatamente isso — sem nós extras, só parâmetros do próprio gmapping.
+
+  Diferenças em relação ao original (P3DX -> Kobuki/Kinect):
+    - scan: /p3dx/laser/scan  ->  /scan (derivado do Kinect)
+    - base_frame: base_link   ->  base_footprint (raiz do URDF Kobuki)
+    - maxUrange/maxRange = alcance REAL do Kinect (far clip 8 m), não 5/6
+    - minimumScore > 0: rejeita casamento de scan ruim (anti "mapa escorregando")
+    - mais partículas: compensa o scan-matching fraco de um FOV de só ~60°
+    - ruído de odometria = defaults do gmapping (como no original): NÃO reduzir,
+      senão a janela de busca do scan-matcher fica estreita demais e ele falha
+    - teleop NÃO sobe aqui (lê teclado; roda em terminal próprio)
+
+  Parâmetros de tuning expostos como <arg> para calibrar ao vivo, ex.:
+    roslaunch robo_aspirador_kinect manual_mapping.launch minimum_score:=0
+-->
+<launch>
+  <!-- Silencia o flood de TF_REPEATED_DATA (ruído do plugin Kobuki no Gazebo) -->
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find robo_aspirador_kinect)/config/rosconsole.conf"/>
+
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <arg name="odom_frame" default="odom"/>
+
+  <!-- Tuning do SLAM (adaptado ao Kinect). Ver comentários no cabeçalho. -->
+  <arg name="maxUrange" default="7.0"/>       <!-- alcance útil (Kinect ~8 m) -->
+  <arg name="maxRange" default="8.0"/>        <!-- far clip do Kinect -->
+  <arg name="minimum_score" default="50"/>   <!-- anti-deriva; 0 = aceita tudo -->
+  <arg name="particles" default="80"/>        <!-- mais robusto p/ FOV estreito -->
+
+  <!-- SLAM GMapping: lê LaserScan (do Kinect) e odometria (via TF odom->base) -->
+  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="log">
+    <remap from="scan" to="$(arg scan_topic)"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+    <param name="odom_frame" value="$(arg odom_frame)"/>
+
+    <!-- Integra scans com mais frequência (compensa 10 Hz + FOV estreito).
+         Original: 2.0 / 0.2 / 0.2. -->
+    <param name="map_update_interval" value="1.0"/>
+    <param name="linearUpdate" value="0.15"/>
+    <param name="angularUpdate" value="0.15"/>
+    <!-- Atualiza também quase parado após 1 s (firma a pose com pouco movimento) -->
+    <param name="temporalUpdate" value="1.0"/>
+
+    <!-- Alcance REAL do Kinect (câmera de profundidade: far clip = 8 m). Reduzir
+         para 5/6 (como estava antes) jogava fora geometria útil dos cômodos
+         maiores, piorando ainda mais o casamento de scans. -->
+    <param name="maxUrange" value="$(arg maxUrange)"/>
+    <param name="maxRange" value="$(arg maxRange)"/>
+
+    <!-- ANTI-DERIVA (a chave para o "mapa escorregando"): com FOV/alcance
+         limitados, o gmapping às vezes acha um casamento de scan ruim e "salta"
+         a pose. minimumScore exige um casamento minimamente bom; abaixo disso ele
+         confia na odometria em vez de corromper o mapa. Recomendado pela doc do
+         gmapping justamente para lasers de alcance/campo limitados.
+         Se o mapa ficar SÓ por odometria (deriva ao fechar voltas), reduza este
+         valor (ex.: minimum_score:=0). Se ainda "escorregar", aumente. -->
+    <param name="minimumScore" value="$(arg minimum_score)"/>
+
+    <!-- Mais partículas: compensa o scan-matching fraco do FOV estreito. -->
+    <param name="particles" value="$(arg particles)"/>
+
+    <param name="sigma" value="0.05"/>
+    <param name="lsigma" value="0.075"/>
+    <param name="occ_thresh" value="0.25"/>
+  </node>
+</launch>
