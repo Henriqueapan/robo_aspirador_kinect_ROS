@@ -1,11 +1,21 @@
 <!--
   Modo MANUAL de mapeamento (adaptado de robo_aspirador_ROS-original).
 
-  Sobe apenas o SLAM (gmapping). A BASE (Gazebo + Kobuki + Kinect + /scan) já
-  deve estar no ar em outro terminal, via bringup_sim.launch. O usuário dirige o
-  robô com o teleop em mais um terminal:
+  Sobe apenas o SLAM. A BASE (Gazebo + Kobuki + Kinect + /scan) já deve estar no
+  ar em outro terminal, via bringup_sim.launch. O usuário dirige o robô com o
+  teleop em mais um terminal:
     docker exec -it robo_aspirador_kinect bash
     roslaunch robo_aspirador_kinect teleop.launch
+
+  SLAM selecionável (arg slam):
+    gmapping (padrão, validado) — filtro de partículas; tuning adaptado ao FOV
+        estreito do Kinect (ver args abaixo e comentários no nó).
+    toolbox — slam_toolbox (online_async, pose-graph + loop closure). Ao fechar
+        voltas corrige o mapa inteiro para trás, tendendo a um mapa mais reto com
+        o FOV estreito. Config em config/slam_toolbox.yaml. Ex.:
+          roslaunch robo_aspirador_kinect manual_mapping.launch slam:=toolbox
+
+  Salvar o mapa é IGUAL nos dois (ambos publicam /map): map_saver + fechar_mapa.py.
 
   Base: mesma stack de gmapping do original (robo_aspirador_ROS-original), com os
   parâmetros ADAPTADOS à diferença de sensor. O original usava um laser Hokuyo
@@ -36,46 +46,74 @@
   <arg name="base_frame" default="base_footprint"/>
   <arg name="odom_frame" default="odom"/>
 
-  <!-- Tuning do SLAM (adaptado ao Kinect). Ver comentários no cabeçalho. -->
+  <!-- SLAM selecionável: gmapping (padrão, validado) | toolbox (slam_toolbox) -->
+  <arg name="slam" default="gmapping"/>
+
+  <!-- Loop closure do slam_toolbox (só vale p/ slam:=toolbox). Com o FOV
+       estreito do Kinect loops falsos DOBRAM o mapa; desligar (false) confia na
+       odometria (quase perfeita em sim) e costuma dar um mapa mais limpo:
+         roslaunch ... manual_mapping.launch slam:=toolbox loop_closing:=false -->
+  <arg name="loop_closing" default="true"/>
+
+  <!-- Tuning do gmapping (adaptado ao Kinect). Ver comentários no cabeçalho. -->
   <arg name="maxUrange" default="7.0"/>       <!-- alcance útil (Kinect ~8 m) -->
   <arg name="maxRange" default="8.0"/>        <!-- far clip do Kinect -->
   <arg name="minimum_score" default="50"/>   <!-- anti-deriva; 0 = aceita tudo -->
   <arg name="particles" default="80"/>        <!-- mais robusto p/ FOV estreito -->
 
+  <!-- ============ gmapping (padrão) ============ -->
   <!-- SLAM GMapping: lê LaserScan (do Kinect) e odometria (via TF odom->base) -->
-  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="log">
-    <remap from="scan" to="$(arg scan_topic)"/>
-    <param name="base_frame" value="$(arg base_frame)"/>
-    <param name="odom_frame" value="$(arg odom_frame)"/>
+  <group if="$(eval slam == 'gmapping')">
+    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="log">
+      <remap from="scan" to="$(arg scan_topic)"/>
+      <param name="base_frame" value="$(arg base_frame)"/>
+      <param name="odom_frame" value="$(arg odom_frame)"/>
 
-    <!-- Integra scans com mais frequência (compensa 10 Hz + FOV estreito).
-         Original: 2.0 / 0.2 / 0.2. -->
-    <param name="map_update_interval" value="1.0"/>
-    <param name="linearUpdate" value="0.15"/>
-    <param name="angularUpdate" value="0.15"/>
-    <!-- Atualiza também quase parado após 1 s (firma a pose com pouco movimento) -->
-    <param name="temporalUpdate" value="1.0"/>
+      <!-- Integra scans com mais frequência (compensa 10 Hz + FOV estreito).
+           Original: 2.0 / 0.2 / 0.2. -->
+      <param name="map_update_interval" value="1.0"/>
+      <param name="linearUpdate" value="0.15"/>
+      <param name="angularUpdate" value="0.15"/>
+      <!-- Atualiza também quase parado após 1 s (firma a pose com pouco movimento) -->
+      <param name="temporalUpdate" value="1.0"/>
 
-    <!-- Alcance REAL do Kinect (câmera de profundidade: far clip = 8 m). Reduzir
-         para 5/6 (como estava antes) jogava fora geometria útil dos cômodos
-         maiores, piorando ainda mais o casamento de scans. -->
-    <param name="maxUrange" value="$(arg maxUrange)"/>
-    <param name="maxRange" value="$(arg maxRange)"/>
+      <!-- Alcance REAL do Kinect (câmera de profundidade: far clip = 8 m). Reduzir
+           para 5/6 (como estava antes) jogava fora geometria útil dos cômodos
+           maiores, piorando ainda mais o casamento de scans. -->
+      <param name="maxUrange" value="$(arg maxUrange)"/>
+      <param name="maxRange" value="$(arg maxRange)"/>
 
-    <!-- ANTI-DERIVA (a chave para o "mapa escorregando"): com FOV/alcance
-         limitados, o gmapping às vezes acha um casamento de scan ruim e "salta"
-         a pose. minimumScore exige um casamento minimamente bom; abaixo disso ele
-         confia na odometria em vez de corromper o mapa. Recomendado pela doc do
-         gmapping justamente para lasers de alcance/campo limitados.
-         Se o mapa ficar SÓ por odometria (deriva ao fechar voltas), reduza este
-         valor (ex.: minimum_score:=0). Se ainda "escorregar", aumente. -->
-    <param name="minimumScore" value="$(arg minimum_score)"/>
+      <!-- ANTI-DERIVA (a chave para o "mapa escorregando"): com FOV/alcance
+           limitados, o gmapping às vezes acha um casamento de scan ruim e "salta"
+           a pose. minimumScore exige um casamento minimamente bom; abaixo disso ele
+           confia na odometria em vez de corromper o mapa. Recomendado pela doc do
+           gmapping justamente para lasers de alcance/campo limitados.
+           Se o mapa ficar SÓ por odometria (deriva ao fechar voltas), reduza este
+           valor (ex.: minimum_score:=0). Se ainda "escorregar", aumente. -->
+      <param name="minimumScore" value="$(arg minimum_score)"/>
 
-    <!-- Mais partículas: compensa o scan-matching fraco do FOV estreito. -->
-    <param name="particles" value="$(arg particles)"/>
+      <!-- Mais partículas: compensa o scan-matching fraco do FOV estreito. -->
+      <param name="particles" value="$(arg particles)"/>
 
-    <param name="sigma" value="0.05"/>
-    <param name="lsigma" value="0.075"/>
-    <param name="occ_thresh" value="0.25"/>
-  </node>
+      <param name="sigma" value="0.05"/>
+      <param name="lsigma" value="0.075"/>
+      <param name="occ_thresh" value="0.25"/>
+    </node>
+  </group>
+
+  <!-- ============ slam_toolbox ============ -->
+  <!-- online_async + loop closure. Config em config/slam_toolbox.yaml; os frames,
+       o tópico e o alcance vêm dos args acima (sobrescrevem o yaml). -->
+  <group if="$(eval slam == 'toolbox')">
+    <node pkg="slam_toolbox" type="async_slam_toolbox_node" name="slam_toolbox" output="log">
+      <rosparam command="load" file="$(find robo_aspirador_kinect)/config/slam_toolbox.yaml"/>
+      <param name="scan_topic" value="$(arg scan_topic)"/>
+      <param name="base_frame" value="$(arg base_frame)"/>
+      <param name="odom_frame" value="$(arg odom_frame)"/>
+      <param name="map_frame" value="map"/>
+      <param name="max_laser_range" value="$(arg maxRange)"/>
+      <!-- Sobrescreve o do_loop_closing do yaml (A/B rápido do loop closure) -->
+      <param name="do_loop_closing" value="$(arg loop_closing)"/>
+    </node>
+  </group>
 </launch>

@@ -1,0 +1,80 @@
+# slam_toolbox (online_async) — mapeamento adaptado ao Kinect.
+#
+# Alternativa ao gmapping (arg slam:=toolbox em manual_mapping.launch).
+#
+# IMPORTANTE (FOV estreito ~60°): a geometria vista pelo Kinect é AMBÍGUA, então
+# o loop closure erra com facilidade — "casa" lugares diferentes e DOBRA o
+# pose-graph, produzindo paredes duplicadas/borradas (mapa pior que o gmapping).
+# Por isso os limiares de casamento aqui são ENDURECIDOS: só aceitamos scan-links
+# e loops com resposta alta, para o solver não distorcer o grafo com casamentos
+# ruins. Se o mapa ainda "dobrar", desligue o loop closure (do_loop_closing:
+# false) e confie na odometria (quase perfeita em sim) — ver comentário abaixo.
+#
+# base_frame/odom_frame/map_frame/scan_topic/max_laser_range são SOBRESCRITOS
+# pelo manual_mapping.launch (reaproveita os args de lá). Os demais valores são
+# ajustados para o /scan pobre do Kinect (~6-7 Hz, alcance 8 m).
+
+# --- Frames e tópico (o launch sobrescreve; defaults sensatos aqui) ---
+odom_frame: odom
+map_frame: map
+base_frame: base_footprint
+scan_topic: /scan
+use_scan_matching: true
+use_scan_barycenter: true
+
+# --- Modo ---
+mode: mapping
+
+# --- Taxas de saída ---
+# Publica map->odom com frequência (o /scan é lento; TF precisa não expirar).
+transform_publish_period: 0.05
+map_update_interval: 1.0
+resolution: 0.05
+# Far clip real da câmera de profundidade do Kinect.
+max_laser_range: 8.0
+minimum_time_interval: 0.2
+transform_timeout: 0.3
+tf_buffer_duration: 10.0
+stack_size_to_use: 40000000
+
+# --- Integração de scans: integra com pouco movimento (FOV estreito + 10 Hz) ---
+minimum_travel_distance: 0.1
+minimum_travel_heading: 0.1
+
+# --- Scan matching ---
+# scan buffer curto ajuda com FOV estreito (menos geometria por scan).
+scan_buffer_size: 10
+scan_buffer_maximum_scan_distance: 10.0
+# ENDURECIDO (era 0.1): rejeita scan-links fracos que borram as paredes.
+link_match_minimum_response_fine: 0.25
+link_scan_maximum_distance: 1.5
+
+# --- Loop closure (ENDURECIDO para o FOV estreito) ---
+# Com 60° de FOV loops falsos dobram o mapa. Exigimos cadeia mais longa, busca
+# mais curta e resposta mais alta, para só fechar voltas com evidência forte.
+do_loop_closing: true
+loop_search_maximum_distance: 2.0        # era 3.0: só considera loops próximos
+loop_match_minimum_chain_size: 15        # era 10: exige mais scans consistentes
+loop_match_maximum_variance_coarse: 3.0
+loop_match_minimum_response_coarse: 0.5  # era 0.35
+loop_match_minimum_response_fine: 0.6    # era 0.45: só loop com casamento forte
+
+# --- Correlação (grades de busca do matcher) ---
+correlation_search_space_dimension: 0.5
+correlation_search_space_resolution: 0.01
+correlation_search_space_smear_deviation: 0.1
+
+# --- Loop closure: janelas de busca ---
+loop_search_space_dimension: 8.0
+loop_search_space_resolution: 0.05
+loop_search_space_smear_deviation: 0.03
+
+# --- Penalidades do scan matcher ---
+distance_variance_penalty: 0.5
+angle_variance_penalty: 1.0
+fine_search_angle_offset: 0.00349
+coarse_search_angle_offset: 0.349
+coarse_angle_resolution: 0.0349
+minimum_angle_penalty: 0.9
+minimum_distance_penalty: 0.5
+use_response_expansion: true

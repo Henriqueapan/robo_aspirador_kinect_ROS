@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-noetic-gazebo-plugins \
     ros-noetic-slam-gmapping \
     ros-noetic-openslam-gmapping \
+    ros-noetic-slam-toolbox \
     ros-noetic-navigation \
     ros-noetic-map-server \
     && rm -rf /var/lib/apt/lists/*
