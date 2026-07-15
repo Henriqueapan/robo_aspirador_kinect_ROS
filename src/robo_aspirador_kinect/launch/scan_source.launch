@@ -9,20 +9,34 @@
         depthimage_to_laserscan: achata a imagem de profundidade do Kinect
         (/camera/depth/image_raw) em um feixe 2D. Leve e já validado.
 
-    scan_source=cloud  (fase 2, evolução)
+    scan_source=cloud  (opcional, validado)
         pointcloud_to_laserscan: projeta a nuvem 3D (/camera/depth/points)
         para /scan com filtro de altura (min_height/max_height), usando de
-        fato a point cloud do Kinect. Requer o pacote pointcloud_to_laserscan.
+        fato a point cloud do Kinect. Requer o pacote pointcloud_to_laserscan
+        (ros-noetic-pointcloud-to-laserscan, já no Dockerfile).
 
-  IMPORTANTE: o tópico de saída (/scan) e o frame de saída (camera_depth_frame)
-  devem ser idênticos nos dois modos para a troca ser drop-in.
+  IMPORTANTE: o tópico de saída (/scan) é idêntico nos dois modos (drop-in).
+  O frame de saída difere de propósito: o depth publica em camera_depth_frame;
+  o cloud publica em base_footprint (target_frame), o que torna o filtro de
+  altura (min_height/max_height) referente ao CHÃO, não ao plano do sensor.
+  Ambos são válidos para os consumidores (gmapping/amcl/costmaps) via TF.
 -->
 <launch>
   <arg name="scan_source" default="depth"/>       <!-- depth | cloud -->
   <arg name="scan_topic" default="/scan"/>
   <arg name="output_frame" default="camera_depth_frame"/>
   <arg name="range_min" default="0.45"/>
-  <arg name="range_max" default="6.0"/>
+  <arg name="range_max" default="8.0"/>
+
+  <!-- Tuning do modo cloud (pointcloud_to_laserscan). Expostos como arg para
+       calibrar ao vivo, ex.: scan_source.launch min_height:=0.10 -->
+  <arg name="cloud_target_frame" default="base_footprint"/>  <!-- Z=0 no CHÃO -->
+  <arg name="cloud_min_height" default="0.05"/>              <!-- descarta chão -->
+  <arg name="cloud_max_height" default="1.20"/>              <!-- descarta teto -->
+  <arg name="cloud_angle_min" default="-0.5236"/>            <!-- ~-30° (FOV Kinect ~60°) -->
+  <arg name="cloud_angle_max" default="0.5236"/>             <!-- ~+30° -->
+  <arg name="cloud_angle_increment" default="0.0087"/>       <!-- ~0.5° -->
+  <arg name="cloud_in" default="/camera/depth/points"/>
 
   <!-- ============ depth (padrão) ============ -->
   <group if="$(eval scan_source == 'depth')">
@@ -37,21 +51,28 @@
     </node>
   </group>
 
-  <!-- ============ cloud (fase 2) ============ -->
+  <!-- ============ cloud ============ -->
   <!--
-    Requer: apt install ros-noetic-pointcloud-to-laserscan
-    Ajuste min_height/max_height à altura do Kinect no robô para filtrar o chão.
+    Requer: ros-noetic-pointcloud-to-laserscan (já no Dockerfile).
+    O filtro de altura usa target_frame=base_footprint, então min_height/
+    max_height são referentes ao CHÃO (não ao plano do sensor): min_height
+    descarta o chão e max_height descarta o teto, mas obstáculos baixos
+    (pé de mesa, cadeira) continuam visíveis — melhor para navegação.
+    Roda como nodelet no mesmo manager do modo depth (sem manager ocioso).
   -->
   <group if="$(eval scan_source == 'cloud')">
     <node pkg="nodelet" type="nodelet" name="laserscan_nodelet_manager" args="manager"/>
-    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node"
-          name="pointcloud_to_laserscan">
-      <param name="target_frame" value="$(arg output_frame)"/>
-      <param name="min_height" value="0.10"/>
-      <param name="max_height" value="1.00"/>
+    <node pkg="nodelet" type="nodelet" name="pointcloud_to_laserscan"
+          args="load pointcloud_to_laserscan/pointcloud_to_laserscan_nodelet laserscan_nodelet_manager">
+      <param name="target_frame" value="$(arg cloud_target_frame)"/>
+      <param name="min_height" value="$(arg cloud_min_height)"/>
+      <param name="max_height" value="$(arg cloud_max_height)"/>
+      <param name="angle_min" value="$(arg cloud_angle_min)"/>
+      <param name="angle_max" value="$(arg cloud_angle_max)"/>
+      <param name="angle_increment" value="$(arg cloud_angle_increment)"/>
       <param name="range_min" value="$(arg range_min)"/>
       <param name="range_max" value="$(arg range_max)"/>
-      <remap from="cloud_in" to="/camera/depth/points"/>
+      <remap from="cloud_in" to="$(arg cloud_in)"/>
       <remap from="scan" to="$(arg scan_topic)"/>
     </node>
   </group>

@@ -5,7 +5,7 @@
 services:
   ros-kinect-poc:
     build: .
-    image: robo-aspirador-kinect:noetic-0.1.0
+    image: robo-aspirador-kinect:noetic-0.2.0
     container_name: robo_aspirador_kinect
     stdin_open: true
     tty: true

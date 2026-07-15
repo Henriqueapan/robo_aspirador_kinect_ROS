@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-noetic-teleop-twist-keyboard \
     ros-noetic-sophus \
     ros-noetic-depthimage-to-laserscan \
+    ros-noetic-pointcloud-to-laserscan \
     ros-noetic-openni-description \
     ros-noetic-openni-launch \
     ros-noetic-openni2-launch \
