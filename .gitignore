@@ -1,0 +1,12 @@
+# Bytecode Python (gerado por py_compile e pela execução dos scripts).
+**/__pycache__/
+*.pyc
+
+# Mapas salvos localmente pelo map_saver durante sessões de teste. São
+# artefatos grandes (~16 MB por PGM) e específicos de cada gravação; não
+# devem entrar no repositório. Os mapas de exemplo casa*.{pgm,yaml} ficam
+# versionados normalmente.
+src/robo_aspirador_kinect/maps/mapa_atual*
+
+# Variáveis de ambiente locais (usar .env.example como template).
+.env
