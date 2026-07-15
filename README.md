@@ -18,7 +18,9 @@
 
 > A navegação autônoma reaproveita a stack do projeto `robo_aspirador_ROS-original`
 > (gmapping + move_base_flex + full_coverage_path_planner + tracking_pid + amcl),
-> alimentada pelo `/scan` **derivado do Kinect** via `depthimage_to_laserscan`.
+> alimentada pelo `/scan` — por padrão vindo de um **laser 2D simulado (240°)**,
+> com o Kinect (`depthimage_to_laserscan`/`pointcloud_to_laserscan`) como fonte
+> alternativa parametrizável (ver [Fonte do `/scan`](#fonte-do-scan-modular)).
 
 
 
@@ -37,7 +39,7 @@ O URDF `kobuki_hexagons_kinect.urdf.xacro` (pacote `turtlebot_description`) incl
 | `sensor_msgs/Image`       | `/camera/depth/image_raw` | Profundidade                         |
 | `sensor_msgs/CameraInfo`  | `/camera/*/camera_info`   | Calibração                           |
 | `sensor_msgs/PointCloud2` | `/camera/depth/points`    | Nuvem 3D                             |
-| `sensor_msgs/LaserScan`   | `/scan`                   | Gerado por `depthimage_to_laserscan` |
+| `sensor_msgs/LaserScan`   | `/scan`                   | Laser 2D (padrão) ou derivado do Kinect (`scan_source`) |
 
 
 **Não** chamamos `libfreenect` nem `openni2_camera` em runtime na simulação: o hardware Kinect não existe no container; o Gazebo substitui o driver.
@@ -162,11 +164,26 @@ Sobe Gazebo + casa + TurtleBot2/Kinect + `/scan` + RViz (config
 `config/navigation.rviz`), onde você acompanha o mapa crescendo e, depois, o
 caminho de cobertura.
 
-**Terminal 2 — mapeamento (gmapping):**
+**Terminal 2 — mapeamento (SLAM):**
 
 ```bash
 roslaunch robo_aspirador_kinect manual_mapping.launch
 ```
+
+O SLAM é selecionável por `slam:=gmapping|toolbox` (padrão `gmapping`, validado):
+
+```bash
+# alternativa: slam_toolbox (pose-graph + loop closure)
+roslaunch robo_aspirador_kinect manual_mapping.launch slam:=toolbox
+```
+
+Com `slam:=toolbox`, ao **fechar voltas** (repassar por lugares já vistos) o mapa
+"corrige para trás" via loop closure — tende a ficar mais reto que o gmapping com
+o FOV estreito (~60°) do Kinect. A config fica em `config/slam_toolbox.yaml`.
+**Salvar o mapa e a cobertura são idênticos nos dois** (ambos publicam `/map`).
+
+> O `slam_toolbox` foi adicionado ao `Dockerfile`; refaça `docker compose build`
+> antes do primeiro uso de `slam:=toolbox`.
 
 **Terminal 3 — dirigir (teleop):**
 
@@ -219,23 +236,27 @@ encerrar tudo: `Ctrl+C` no Terminal 2 e depois no Terminal 1.
 
 
 
-### Qualidade do mapa (Kinect vs. laser) e como mapear bem
+### Qualidade do mapa (laser vs. Kinect) e como mapear bem
 
-O mapa é construído pelo **mesmo gmapping** do projeto original. A diferença de
-qualidade **não é do código migrado** — é do sensor:
-
-
-|                           | Original (P3DX) | Kinect (aqui) |
-| ------------------------- | --------------- | ------------- |
-| Campo de visão do `/scan` | **240°**        | **~60°**      |
-| Feixes                    | 727             | ~640          |
-| Alcance                   | 4 m             | ~8 m          |
-| Taxa                      | 50 Hz           | 10 Hz         |
+Por padrão o mapa é construído pelo **mesmo gmapping** do projeto original
+(alternativa: `slam:=toolbox`, ver acima). A qualidade depende **fortemente da
+fonte do `/scan`** (`scan_source`):
 
 
-Com só ~60° de FOV (1/4 do laser original), o *scan-matching* do gmapping tem bem
-menos geometria para "casar", sobretudo em **rotação** — daí o mapa parecer
-"escorregar/girar" em torno do robô quando o casamento aceita uma correção ruim.
+|                           | Laser 2D (padrão) | Original (P3DX) | Kinect (`depth`/`cloud`) |
+| ------------------------- | ----------------- | --------------- | ------------------------ |
+| Campo de visão do `/scan` | **240°**          | **240°**        | **~60°**                 |
+| Feixes                    | ~640              | 727             | ~640                     |
+| Alcance                   | ~8 m              | 4 m             | ~8 m                     |
+| Taxa                      | 10 Hz             | 50 Hz           | 10 Hz                    |
+
+
+Com o **laser 2D (padrão, 240°)** o *scan-matching* tem geometria de sobra — mapa
+estável, equiparável ao P3DX original. Os problemas abaixo valem sobretudo para
+`scan_source:=depth|cloud` (Kinect): com só ~60° de FOV (1/4 do laser), o
+*scan-matching* do gmapping tem bem menos geometria para "casar", sobretudo em
+**rotação** — daí o mapa parecer "escorregar/girar" em torno do robô quando o
+casamento aceita uma correção ruim.
 
 O `manual_mapping.launch` já vem ajustado para isso (ver comentários no arquivo):
 `minimumScore` com default **50** (rejeita casamento ruim e cai na odometria,
@@ -278,18 +299,30 @@ o recomendado; o menu é mantido como conveniência.
 
 ### Fonte do `/scan` (modular)
 
-A geração do `/scan` é isolada em `scan_source.launch` com o argumento `scan_source`:
+A fonte do `/scan` é isolada com o argumento `scan_source`. A **primária** é um
+laser 2D simulado; o Kinect continua parametrizável como alternativa:
 
 
-| Valor            | Nó                        | Uso                                                                                                                                                                |
+| Valor            | Fonte                     | Uso                                                                                                                                                                |
 | ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `depth` (padrão) | `depthimage_to_laserscan` | Achata a imagem de profundidade do Kinect. Leve e validado.                                                                                                        |
+| `laser` (padrão) | Laser 2D no URDF (Gazebo) | Scanner 2D simulado (**240°**, perfil Hokuyo URG-04LX) publicando `/scan` direto do Gazebo. FOV 4× maior que o Kinect → mapeamento/localização bem mais estáveis.  |
+| `depth`          | `depthimage_to_laserscan` | Achata a imagem de profundidade do Kinect (FOV ~60°). Leve.                                                                                                        |
 | `cloud`          | `pointcloud_to_laserscan` | Projeta a nuvem 3D (`/camera/depth/points`) com filtro de altura, como nodelet no mesmo manager. Requer `ros-noetic-pointcloud-to-laserscan` (já no `Dockerfile`). |
 
+
+No modo `laser` o robô carrega o URDF `urdf/kobuki_hexagons_kinect_laser.urdf.xacro`
+(base padrão do TurtleBot + laser 2D sobre a base); em `depth`/`cloud` carrega o
+robô padrão (sem laser) e o `/scan` vem do Kinect. O laser publica `/scan`
+direto do Gazebo, então `scan_source.launch` não sobe nenhum nó nesse modo.
+FOV/feixes/alcance/altura do laser ficam como propriedades `laser_*` no xacro
+(mudança só exige relançar, sem rebuild).
 
 Trocar a fonte é um argumento — o resto da stack só conhece o tópico `/scan`:
 
 ```bash
+# padrão (laser 2D):
+roslaunch robo_aspirador_kinect bringup_sim.launch
+# usar o Kinect:
 roslaunch robo_aspirador_kinect bringup_sim.launch scan_source:=cloud
 ```
 
@@ -345,10 +378,10 @@ rosrun robo_aspirador_kinect bench_scan.py _duration_sec:=30
 | Launch                                | Função                                                                                             |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `bringup_sim.launch`                  | **Base (launch principal)**: Gazebo + casa + TurtleBot2/Kinect + `/scan` (+ RViz com `rviz:=true`) |
-| `manual_mapping.launch`               | SLAM gmapping (etapa de mapeamento)                                                                |
+| `manual_mapping.launch`               | SLAM na etapa de mapeamento (`slam:=gmapping` padrão \| `toolbox`)                                  |
 | `teleop.launch`                       | Teclado (dirigir no mapeamento)                                                                    |
 | `automatic_aspiracao.launch`          | Cobertura (MBF + full_coverage) + amcl (etapa autônoma)                                            |
-| `scan_source.launch`                  | Geração do `/scan` (depth | cloud)                                                                 |
+| `scan_source.launch`                  | Geração do `/scan` (laser \| depth \| cloud)                                                        |
 | `coverage_mbf_tracking.launch`        | Stack de cobertura (usada pelo modo automático)                                                    |
 | `rviz_sensors.launch`                 | RViz sensores                                                                                      |
 | `poc_demo.launch`                     | Sensores: bringup + RViz + verificador de tópicos                                                  |
