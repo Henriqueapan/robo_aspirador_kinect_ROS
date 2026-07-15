@@ -1,0 +1,60 @@
+<!--
+  Launch principal da entrega: seletor de modos (Kobuki + Kinect).
+
+  Uso (dentro do container, após source devel/setup.bash):
+    roslaunch robo_aspirador_kinect robo_aspirador_mode_selector.launch
+
+  Sobe a base (Gazebo + Kobuki + Kinect + /scan + RViz) e o menu interativo:
+    1 = Manual (gmapping)  |  s = Salvar mapa  |  2 = Automático  |  q = Sair
+
+  A BASE é subida aqui, pelo roslaunch externo (dono do gazebo). Assim o Ctrl+C
+  encerra o gazebo corretamente e NÃO deixa processo órfão — o que, ao relançar,
+  criaria um segundo publisher de odom->base_footprint e geraria o flood de
+  TF_REPEATED_DATA. O mode_selector cuida só dos MODOS (gmapping/cobertura).
+
+  Para dirigir no modo manual, abra um SEGUNDO terminal:
+    docker exec -it robo_aspirador_kinect bash
+    roslaunch robo_aspirador_kinect teleop.launch
+-->
+<launch>
+  <!-- Silencia o flood de TF_REPEATED_DATA (ruído do plugin Kobuki). Definido
+       aqui para que a base, o mode_selector e os modos (manual/auto, via
+       roslaunch em processo filho) herdem o config. -->
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find robo_aspirador_kinect)/config/rosconsole.conf"/>
+
+  <arg name="default_map" default="$(find robo_aspirador_kinect)/maps/mapa_atual.yaml"/>
+  <arg name="save_map_path" default="$(find robo_aspirador_kinect)/maps/mapa_atual"/>
+  <arg name="rviz" default="true"/>
+  <arg name="scan_source" default="depth"/>
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+  <!-- robot_radius deve ser >= tool_radius (underflow uint32 no parseGrid do
+       full_coverage_path_planner faz o planejador ignorar TODAS as paredes) -->
+  <arg name="robot_radius" default="0.2"/>
+  <arg name="tool_radius" default="0.18"/>
+  <arg name="use_current_pose" default="true"/>
+  <arg name="map_frame" default="map"/>
+  <arg name="base_frame" default="base_footprint"/>
+
+  <!-- Base (Gazebo + Kobuki + Kinect + /scan + RViz), dona do gazebo pelo
+       roslaunch externo. Encerra limpo no Ctrl+C, sem órfãos. -->
+  <include file="$(find robo_aspirador_kinect)/launch/bringup_sim.launch">
+    <arg name="scan_source" value="$(arg scan_source)"/>
+    <arg name="rviz" value="$(arg rviz)"/>
+  </include>
+
+  <node pkg="robo_aspirador_kinect" type="mode_selector.py" name="mode_selector" output="screen">
+    <param name="default_map" value="$(arg default_map)"/>
+    <param name="save_map_path" value="$(arg save_map_path)"/>
+    <param name="rviz" value="$(arg rviz)"/>
+    <param name="initial_pose_x" value="$(arg initial_pose_x)"/>
+    <param name="initial_pose_y" value="$(arg initial_pose_y)"/>
+    <param name="initial_pose_a" value="$(arg initial_pose_a)"/>
+    <param name="robot_radius" value="$(arg robot_radius)"/>
+    <param name="tool_radius" value="$(arg tool_radius)"/>
+    <param name="use_current_pose" value="$(arg use_current_pose)"/>
+    <param name="map_frame" value="$(arg map_frame)"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+  </node>
+</launch>

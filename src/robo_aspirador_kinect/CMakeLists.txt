@@ -14,6 +14,8 @@ catkin_package()
 catkin_install_python(PROGRAMS
   scripts/verify_rgbd_topics.py
   scripts/kinect_teleop.py
+  scripts/mode_selector.py
+  scripts/fechar_mapa.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
