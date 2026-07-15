@@ -1,0 +1,58 @@
+<!--
+  Fonte do LaserScan (/scan) derivado do Kinect.
+
+  Esta camada é isolada de propósito: todo o resto da stack (gmapping, amcl,
+  move_base_flex, full_coverage_path_planner) consome apenas o tópico /scan e
+  não sabe de onde ele vem. Trocar a fonte é mudar um único argumento.
+
+    scan_source=depth  (padrão, comprovado nesta POC)
+        depthimage_to_laserscan: achata a imagem de profundidade do Kinect
+        (/camera/depth/image_raw) em um feixe 2D. Leve e já validado.
+
+    scan_source=cloud  (fase 2, evolução)
+        pointcloud_to_laserscan: projeta a nuvem 3D (/camera/depth/points)
+        para /scan com filtro de altura (min_height/max_height), usando de
+        fato a point cloud do Kinect. Requer o pacote pointcloud_to_laserscan.
+
+  IMPORTANTE: o tópico de saída (/scan) e o frame de saída (camera_depth_frame)
+  devem ser idênticos nos dois modos para a troca ser drop-in.
+-->
+<launch>
+  <arg name="scan_source" default="depth"/>       <!-- depth | cloud -->
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="output_frame" default="camera_depth_frame"/>
+  <arg name="range_min" default="0.45"/>
+  <arg name="range_max" default="6.0"/>
+
+  <!-- ============ depth (padrão) ============ -->
+  <group if="$(eval scan_source == 'depth')">
+    <node pkg="nodelet" type="nodelet" name="laserscan_nodelet_manager" args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="depthimage_to_laserscan"
+          args="load depthimage_to_laserscan/DepthImageToLaserScanNodelet laserscan_nodelet_manager">
+      <param name="scan_height" value="10"/>
+      <param name="output_frame_id" value="$(arg output_frame)"/>
+      <param name="range_min" value="$(arg range_min)"/>
+      <remap from="image" to="/camera/depth/image_raw"/>
+      <remap from="scan" to="$(arg scan_topic)"/>
+    </node>
+  </group>
+
+  <!-- ============ cloud (fase 2) ============ -->
+  <!--
+    Requer: apt install ros-noetic-pointcloud-to-laserscan
+    Ajuste min_height/max_height à altura do Kinect no robô para filtrar o chão.
+  -->
+  <group if="$(eval scan_source == 'cloud')">
+    <node pkg="nodelet" type="nodelet" name="laserscan_nodelet_manager" args="manager"/>
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node"
+          name="pointcloud_to_laserscan">
+      <param name="target_frame" value="$(arg output_frame)"/>
+      <param name="min_height" value="0.10"/>
+      <param name="max_height" value="1.00"/>
+      <param name="range_min" value="$(arg range_min)"/>
+      <param name="range_max" value="$(arg range_max)"/>
+      <remap from="cloud_in" to="/camera/depth/points"/>
+      <remap from="scan" to="$(arg scan_topic)"/>
+    </node>
+  </group>
+</launch>
